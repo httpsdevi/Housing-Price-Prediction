@@ -1,4 +1,4 @@
-# 🏠 Housing Price Dashboard
+# 🏠 Housing Price Prediction Dashboard
 
 Hey there! This project is all about an awesome interactive dashboard for checking out housing price data with beautiful visualizations and real-time filtering capabilities. Built to showcase housing market insights and easily integrate with machine learning models.
 
