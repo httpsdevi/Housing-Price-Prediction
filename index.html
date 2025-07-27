@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Housing Price Dashboard</title>
+    <!-- Link to Tailwind CSS for easy styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Link to Chart.js for creating interactive charts -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Inter font for a clean look -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* Custom CSS goes here, complementing Tailwind */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #e2e8f0; /* Light blue-gray background */
+        }
+        .dashboard-card {
+            background-color: white;
+            border-radius: 16px; /* More rounded corners */
+            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.1); /* Softer, larger shadow */
+            padding: 28px;
+            transition: transform 0.3s ease-in-out, box-shadow 0.3s ease-in-out;
+            border: 1px solid #cbd5e1; /* Subtle border */
+        }
+        .dashboard-card:hover {
+            transform: translateY(-8px); /* More pronounced lift on hover */
+            box-shadow: 0 12px 28px rgba(0, 0, 0, 0.15); /* Deeper shadow on hover */
+        }
+        .btn-primary {
+            background: linear-gradient(to right, #6366f1, #8b5cf6); /* Gradient background */
+            color: white;
+            padding: 12px 24px;
+            border-radius: 10px; /* Slightly more rounded */
+            font-weight: 700; /* Bolder text */
+            transition: all 0.2s ease-in-out;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+            border: none;
+            cursor: pointer;
+        }
+        .btn-primary:hover {
+            background: linear-gradient(to right, #4f46e5, #7c3aed); /* Darker gradient on hover */
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+        }
+        .btn-primary:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        .chart-container {
+            position: relative;
+            height: 320px; /* Slightly increased height for charts */
+            width: 100%;
+        }
+
+        /* Input field styling */
+        input[type="number"], select {
+            border: 1px solid #cbd5e1;
+            padding: 10px 12px;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            transition: border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+            appearance: none; /* Remove default arrow for select */
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='currentColor'%3E%3Cpath fill-rule='evenodd' d='M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z' clip-rule='evenodd'/%3E%3C/svg%3E"); /* Custom arrow for select */
+            background-repeat: no-repeat;
+            background-position: right 0.75rem center;
+            background-size: 1.2em;
+        }
+        input[type="number"]:focus, select:focus {
+            border-color: #6366f1; /* Indigo 500 */
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2); /* Focus ring */
+            outline: none;
+        }
+
+        /* Loading Spinner */
+        .loader {
+            border: 4px solid #e0e7ff; /* Light indigo */
+            border-top: 4px solid #6366f1; /* Indigo 500 */
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            display: none; /* Hidden by default */
+            margin: 0 auto;
+        }
+        .loader.active {
+            display: block;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Modal Styles */
+        .modal {
+            display: none; /* Hidden by default */
+            position: fixed; /* Stay in place */
+            z-index: 1000; /* Sit on top */
+            left: 0;
+            top: 0;
+            width: 100%; /* Full width */
+            height: 100%; /* Full height */
+            overflow: auto; /* Enable scroll if needed */
+            background-color: rgba(0,0,0,0.7); /* Darker overlay */
+            justify-content: center;
+            align-items: center;
+            opacity: 0; /* Start invisible for fade-in */
+            transition: opacity 0.3s ease-out;
+        }
+        .modal.show {
+            opacity: 1;
+            display: flex;
+        }
+        .modal-content {
+            background-color: #fefefe;
+            margin: auto;
+            padding: 35px; /* More padding */
+            border-radius: 16px; /* More rounded */
+            width: 90%; /* Wider on small screens */
+            max-width: 650px; /* Slightly larger max-width */
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3); /* Deeper shadow */
+            position: relative;
+            transform: translateY(-30px); /* Start higher for bounce effect */
+            transition: transform 0.3s ease-out;
+        }
+        .modal.show .modal-content {
+            transform: translateY(0); /* Bounce into place */
+        }
+        .close-button {
+            color: #6b7280; /* Gray 500 */
+            position: absolute;
+            top: 18px;
+            right: 28px;
+            font-size: 32px; /* Larger close button */
+            font-weight: bold;
+            cursor: pointer;
+            transition: color 0.2s, transform 0.1s;
+        }
+        .close-button:hover,
+        .close-button:focus {
+            color: #333;
+            transform: rotate(90deg); /* Rotate on hover */
+        }
+        /* Chart.js specific animations */
+        .chart-container canvas {
+            animation: fadeInChart 1s ease-out;
+        }
+        @keyframes fadeInChart {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+    <header class="bg-gradient-to-r from-indigo-700 to-purple-800 text-white p-6 shadow-xl">
+        <div class="container mx-auto flex flex-col md:flex-row justify-between items-center">
+            <h1 class="text-4xl font-extrabold mb-4 md:mb-0 tracking-tight">Housing Insights</h1>
+            <nav>
+                <ul class="flex space-x-6">
+                    <li><a href="#" class="hover:text-indigo-200 transition duration-300 font-semibold text-lg" data-nav="overview">Overview</a></li>
+                    <li><a href="#" class="hover:text-indigo-200 transition duration-300 text-lg" data-nav="predictions">Predictions</a></li>
+                    <li><a href="#" class="hover:text-indigo-200 transition duration-300 text-lg" data-nav="data">Raw Data</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <main class="flex-grow container mx-auto p-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+
+        <!-- Card: Data Filters -->
+        <section class="dashboard-card col-span-1 md:col-span-2 lg:col-span-1 xl:col-span-1">
+            <h2 class="text-2xl font-bold mb-6 text-gray-800">Refine Your View</h2>
+            <div class="space-y-5">
+                <div>
+                    <label for="minPrice" class="block text-sm font-medium text-gray-700 mb-2">Minimum Price ($)</label>
+                    <input type="number" id="minPrice" value="100000" class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base">
+                </div>
+                <div>
+                    <label for="maxPrice" class="block text-sm font-medium text-gray-700 mb-2">Maximum Price ($)</label>
+                    <input type="number" id="maxPrice" value="300000" class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base">
+                </div>
+                <div>
+                    <label for="houseType" class="block text-sm font-medium text-gray-700 mb-2">Property Type</label>
+                    <select id="houseType" class="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base">
+                        <option value="All">All Types</option>
+                        <option value="1Story">1 Story</option>
+                        <option value="2Story">2 Story</option>
+                        <option value="1.5Fin">1.5 Story Finished</option>
+                        <option value="Split">Split Level</option>
+                        <option value="Twnhs">Townhouse</option>
+                        <!-- Add more types as per your data -->
+                    </select>
+                </div>
+                <button id="applyFiltersBtn" class="btn-primary w-full mt-4">Apply Filters</button>
+                <div id="filterLoader" class="loader mt-6"></div>
+            </div>
+        </section>
+
+        <!-- Card 1: Price Distribution Chart -->
+        <section class="dashboard-card col-span-1 md:col-span-2 lg:col-span-2 xl:col-span-2">
+            <h2 class="text-2xl font-bold mb-4 text-gray-800">Sale Price Distribution</h2>
+            <div class="chart-container">
+                <canvas id="priceDistributionChart"></canvas>
+            </div>
+            <p class="text-sm text-gray-600 mt-4">This chart illustrates the frequency of properties within different sale price ranges, based on your applied filters.</p>
+        </section>
+
+        <!-- Card 2: Average Price by Type Chart -->
+        <section class="dashboard-card col-span-1 md:col-span-1 lg:col-span-1 xl:col-span-1">
+            <h2 class="text-2xl font-bold mb-4 text-gray-800">Average Price by Type</h2>
+            <div class="chart-container">
+                <canvas id="priceByTypeChart"></canvas>
+            </div>
+            <p class="text-sm text-gray-600 mt-4">Compares the average sale prices across various property types, providing insights into market value.</p>
+        </section>
+
+        <!-- Card 3: Interactive Filter/Summary -->
+        <section class="dashboard-card col-span-1 md:col-span-1 lg:col-span-1 xl:col-span-1">
+            <h2 class="text-2xl font-bold mb-4 text-gray-800">Dynamic Summary</h2>
+            <p class="text-gray-700 mb-5 text-base" id="summaryText">Generate a summary of the currently filtered data.</p>
+            <button id="updateSummaryBtn" class="btn-primary w-full">Get Current Summary</button>
+            <div class="mt-6 text-base text-gray-700 space-y-2">
+                <p class="flex justify-between items-center"><span>Filtered Properties:</span> <span id="totalProperties" class="font-semibold text-indigo-700 text-lg">--</span></p>
+                <p class="flex justify-between items-center"><span>Avg. Filtered Price:</span> <span id="avgFilteredPrice" class="font-semibold text-purple-700 text-lg">--</span></p>
+            </div>
+        </section>
+
+        <!-- Card 4: Key Metrics -->
+        <section class="dashboard-card col-span-1 md:col-span-2 lg:col-span-1 xl:col-span-1">
+            <h2 class="text-2xl font-bold mb-4 text-gray-800">Key Market Metrics</h2>
+            <div class="grid grid-cols-2 gap-6 text-center">
+                <div class="p-5 bg-indigo-50 rounded-xl shadow-sm">
+                    <p class="text-4xl font-extrabold text-indigo-700" id="metricTotalListings">2.5K+</p>
+                    <p class="text-sm text-gray-600 mt-1">Total Listings</p>
+                </div>
+                <div class="p-5 bg-purple-50 rounded-xl shadow-sm">
+                    <p class="text-4xl font-extrabold text-purple-700" id="metricMedianPrice">$220K</p>
+                    <p class="text-sm text-gray-600 mt-1">Median Price</p>
+                </div>
+            </div>
+            <p class="text-sm text-gray-600 mt-4">Quick overview of current market statistics for all available data.</p>
+        </section>
+
+        <!-- Card 5: Overall Quality vs. Price -->
+        <section class="dashboard-card col-span-1 md:col-span-2 lg:col-span-2 xl:col-span-2">
+            <h2 class="text-2xl font-bold mb-4 text-gray-800">Quality vs. Price Relationship</h2>
+            <div class="chart-container">
+                <canvas id="qualityPriceChart"></canvas>
+            </div>
+            <p class="text-sm text-gray-600 mt-4">Explore how overall property quality correlates with sale price. Click a point for details.</p>
+        </section>
+
+    </main>
+
+    <footer class="bg-gray-900 text-white p-6 text-center text-sm mt-8 shadow-inner">
+        <p>&copy; 2025 Housing Price Prediction. All rights reserved. Designed for data insights.</p>
+    </footer>
+
+    <!-- Property Details Modal -->
+    <div id="propertyDetailsModal" class="modal">
+        <div class="modal-content">
+            <span class="close-button">&times;</span>
+            <h2 class="text-3xl font-bold mb-6 text-gray-800">Property Details</h2>
+            <div id="modalContent" class="text-gray-700 space-y-3 text-lg">
+                <p><strong>Property ID:</strong> <span id="detailId" class="font-medium text-indigo-700"></span></p>
+                <p><strong>Sale Price:</strong> <span id="detailPrice" class="font-medium text-purple-700"></span></p>
+                <p><strong>Property Type:</strong> <span id="detailType" class="font-medium text-green-700"></span></p>
+                <p><strong>Overall Quality:</strong> <span id="detailQuality" class="font-medium text-red-700"></span></p>
+                <p class="text-sm text-gray-500 mt-4"><em>This is a simulated detail view. In a real application, more comprehensive data would be fetched from a database.</em></p>
+            </div>
+            <button class="btn-primary mt-8 w-full" onclick="document.getElementById('propertyDetailsModal').classList.remove('show')">Got It!</button>
+        </div>
+    </div>
+
+    <script>
+        // Global chart instances
+        let priceDistributionChart, priceByTypeChart, qualityPriceChart;
+
+        // Dummy Data for demonstration (expanded with more properties and qualities)
+        const allDummyData = [
+            { id: 1, price: 150000, type: '1Story', quality: 7, sqft: 1200 },
+            { id: 2, price: 200000, type: '2Story', quality: 8, sqft: 1800 },
+            { id: 3, price: 180000, type: '1Story', quality: 6, sqft: 1350 },
+            { id: 4, price: 250000, type: '2Story', quality: 9, sqft: 2000 },
+            { id: 5, price: 120000, type: '1.5Fin', quality: 5, sqft: 1000 },
+            { id: 6, price: 300000, type: '2Story', quality: 9, sqft: 2200 },
+            { id: 7, price: 160000, type: '1Story', quality: 7, sqft: 1250 },
+            { id: 8, price: 280000, type: '2Story', quality: 8, sqft: 1950 },
+            { id: 9, price: 140000, type: '1.5Fin', quality: 6, sqft: 1100 },
+            { id: 10, price: 220000, type: '1Story', quality: 7, sqft: 1400 },
+            { id: 11, price: 350000, type: '2Story', quality: 10, sqft: 2500 },
+            { id: 12, price: 170000, type: '1Story', quality: 6, sqft: 1300 },
+            { id: 13, price: 190000, type: '1.5Fin', quality: 7, sqft: 1500 },
+            { id: 14, price: 210000, type: '2Story', quality: 8, sqft: 1700 },
+            { id: 15, price: 230000, type: '1Story', quality: 7, sqft: 1600 },
+            { id: 16, price: 90000, type: '1Story', quality: 4, sqft: 900 },
+            { id: 17, price: 400000, type: '2Story', quality: 10, sqft: 3000 },
+            { id: 18, price: 110000, type: '1.5Fin', quality: 5, sqft: 950 },
+            { id: 19, price: 270000, type: '1Story', quality: 8, sqft: 1850 },
+            { id: 20, price: 320000, type: '2Story', quality: 9, sqft: 2300 },
+            { id: 21, price: 175000, type: 'Split', quality: 7, sqft: 1400 },
+            { id: 22, price: 215000, type: 'Twnhs', quality: 6, sqft: 1100 },
+            { id: 23, price: 290000, type: '2Story', quality: 9, sqft: 2100 },
+            { id: 24, price: 130000, type: '1Story', quality: 5, sqft: 1050 },
+            { id: 25, price: 260000, type: '1.5Fin', quality: 8, sqft: 1600 },
+        ];
+
+        // Function to render/update charts
+        function renderCharts(dataToDisplay) {
+            // Destroy existing charts if they exist to prevent memory leaks and re-render correctly
+            if (priceDistributionChart) priceDistributionChart.destroy();
+            if (priceByTypeChart) priceByTypeChart.destroy();
+            if (qualityPriceChart) qualityPriceChart.destroy();
+
+            // Define a consistent color palette for charts
+            const chartColors = {
+                primary: 'rgba(99, 102, 241, 0.8)', // Indigo 500
+                secondary: 'rgba(139, 92, 246, 0.8)', // Purple 500
+                tertiary: 'rgba(239, 68, 68, 0.8)', // Red 500
+                accent1: 'rgba(16, 185, 129, 0.8)', // Green 500
+                accent2: 'rgba(245, 158, 11, 0.8)', // Amber 500
+                borderPrimary: 'rgba(99, 102, 241, 1)',
+                borderSecondary: 'rgba(139, 92, 246, 1)',
+                borderTertiary: 'rgba(239, 68, 68, 1)',
+            };
+
+            // --- Chart 1: Price Distribution (Bar Chart for Bins) ---
+            const priceDistributionCtx = document.getElementById('priceDistributionChart').getContext('2d');
+            const priceBins = {
+                '<$150K': 0,
+                '$150K-$200K': 0,
+                '$200K-$250K': 0,
+                '$250K-$300K': 0,
+                '>$300K': 0
+            };
+
+            dataToDisplay.forEach(d => {
+                if (d.price < 150000) priceBins['<$150K']++;
+                else if (d.price >= 150000 && d.price < 200000) priceBins['$150K-$200K']++;
+                else if (d.price >= 200000 && d.price < 250000) priceBins['$200K-$250K']++;
+                else if (d.price >= 250000 && d.price < 300000) priceBins['$250K-$300K']++;
+                else priceBins['>$300K']++;
+            });
+
+            priceDistributionChart = new Chart(priceDistributionCtx, {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(priceBins),
+                    datasets: [{
+                        label: 'Number of Properties',
+                        data: Object.values(priceBins),
+                        backgroundColor: chartColors.primary,
+                        borderColor: chartColors.borderPrimary,
+                        borderWidth: 1,
+                        borderRadius: 6, /* More rounded bars */
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: {
+                        duration: 1000, /* Animation duration */
+                        easing: 'easeOutQuart' /* Easing function */
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Count',
+                                color: '#4b5563' /* Gray 700 */
+                            },
+                            ticks: { color: '#6b7280' }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Sale Price Range',
+                                color: '#4b5563'
+                            },
+                            ticks: { color: '#6b7280' }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: 'rgba(0,0,0,0.8)',
+                            titleColor: '#fff',
+                            bodyColor: '#fff',
+                            borderColor: chartColors.borderPrimary,
+                            borderWidth: 1,
+                            cornerRadius: 6,
+                            displayColors: false,
+                        }
+                    }
+                }
+            });
+
+            // --- Chart 2: Average Price by House Type (Bar Chart) ---
+            const priceByTypeCtx = document.getElementById('priceByTypeChart').getContext('2d');
+            const typePrices = {};
+            dataToDisplay.forEach(d => {
+                if (!typePrices[d.type]) {
+                    typePrices[d.type] = { sum: 0, count: 0 };
+                }
+                typePrices[d.type].sum += d.price;
+                typePrices[d.type].count++;
+            });
+
+            const avgTypePrices = Object.keys(typePrices).map(type => ({
+                type: type,
+                avg: typePrices[type].sum / typePrices[type].count
+            }));
+
+            priceByTypeChart = new Chart(priceByTypeCtx, {
+                type: 'bar',
+                data: {
+                    labels: avgTypePrices.map(d => d.type),
+                    datasets: [{
+                        label: 'Average Price ($)',
+                        data: avgTypePrices.map(d => d.avg),
+                        backgroundColor: chartColors.accent1, /* Green for this chart */
+                        borderColor: chartColors.accent1,
+                        borderWidth: 1,
+                        borderRadius: 6,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: {
+                        duration: 1000,
+                        easing: 'easeOutQuart'
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Average Price ($)',
+                                color: '#4b5563'
+                            },
+                            ticks: { color: '#6b7280' }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'House Type',
+                                color: '#4b5563'
+                            },
+                            ticks: { color: '#6b7280' }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: 'rgba(0,0,0,0.8)',
+                            titleColor: '#fff',
+                            bodyColor: '#fff',
+                            borderColor: chartColors.accent1,
+                            borderWidth: 1,
+                            cornerRadius: 6,
+                            callbacks: {
+                                label: function(context) {
+                                    return `Avg. Price: $${context.raw.toLocaleString()}`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            // --- Chart 3: Quality vs. Price (Scatter Plot) ---
+            const qualityPriceCtx = document.getElementById('qualityPriceChart').getContext('2d');
+            const qualityPriceData = dataToDisplay.map(d => ({
+                x: d.quality,
+                y: d.price,
+                id: d.id, // Keep ID for modal
+                type: d.type
+            }));
+
+            qualityPriceChart = new Chart(qualityPriceCtx, {
+                type: 'scatter',
+                data: {
+                    datasets: [{
+                        label: 'Quality vs. Sale Price',
+                        data: qualityPriceData,
+                        backgroundColor: chartColors.tertiary, /* Red for this chart */
+                        borderColor: chartColors.borderTertiary,
+                        borderWidth: 1,
+                        pointRadius: 7, /* Larger points for easier clicking */
+                        pointBackgroundColor: chartColors.tertiary,
+                        hoverBackgroundColor: 'rgba(255, 99, 132, 1)', /* Highlight on hover */
+                        hoverBorderColor: 'rgba(255, 99, 132, 1)',
+                        pointHoverRadius: 9, /* Larger hover radius */
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: {
+                        duration: 1000,
+                        easing: 'easeOutQuart'
+                    },
+                    scales: {
+                        x: {
+                            type: 'linear',
+                            position: 'bottom',
+                            title: {
+                                display: true,
+                                text: 'Overall Quality (Dummy)',
+                                color: '#4b5563'
+                            },
+                            ticks: { color: '#6b7280' }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Sale Price ($)',
+                                color: '#4b5563'
+                            },
+                            ticks: { color: '#6b7280' }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: 'rgba(0,0,0,0.8)',
+                            titleColor: '#fff',
+                            bodyColor: '#fff',
+                            borderColor: chartColors.borderTertiary,
+                            borderWidth: 1,
+                            cornerRadius: 6,
+                            callbacks: {
+                                label: function(context) {
+                                    return `Quality: ${context.raw.x}, Price: $${context.raw.y.toLocaleString()}`;
+                                }
+                            }
+                        }
+                    },
+                    // Add click event for scatter plot points
+                    onClick: (event, elements) => {
+                        if (elements.length > 0) {
+                            const clickedElementIndex = elements[0].index;
+                            const clickedData = qualityPriceChart.data.datasets[0].data[clickedElementIndex];
+                            showPropertyDetails(clickedData);
+                        }
+                    }
+                }
+            });
+        }
+
+        // Function to filter data based on inputs
+        function filterData() {
+            const minPrice = parseFloat(document.getElementById('minPrice').value);
+            const maxPrice = parseFloat(document.getElementById('maxPrice').value);
+            const houseType = document.getElementById('houseType').value;
+
+            // Input validation
+            if (isNaN(minPrice) || isNaN(maxPrice) || minPrice < 0 || maxPrice < 0 || minPrice > maxPrice) {
+                alert("Please enter valid price ranges (Min Price must be less than or equal to Max Price).");
+                return;
+            }
+
+            // Show loader
+            document.getElementById('filterLoader').classList.add('active');
+
+            // Simulate data processing delay
+            setTimeout(() => {
+                let filtered = allDummyData.filter(d => {
+                    return d.price >= minPrice && d.price <= maxPrice;
+                });
+
+                if (houseType !== 'All') {
+                    filtered = filtered.filter(d => d.type === houseType);
+                }
+
+                renderCharts(filtered);
+                updateSummary(filtered);
+
+                // Hide loader
+                document.getElementById('filterLoader').classList.remove('active');
+            }, 700); // Simulate 0.7 second delay
+        }
+
+        // Function to update summary metrics
+        function updateSummary(data) {
+            const totalPropertiesSpan = document.getElementById('totalProperties');
+            const avgFilteredPriceSpan = document.getElementById('avgFilteredPrice');
+
+            totalPropertiesSpan.textContent = data.length;
+            if (data.length > 0) {
+                const totalPrices = data.reduce((sum, d) => sum + d.price, 0);
+                avgFilteredPriceSpan.textContent = `$${(totalPrices / data.length).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+            } else {
+                avgFilteredPriceSpan.textContent = '--';
+            }
+        }
+
+        // Function to show property details modal
+        function showPropertyDetails(data) {
+            document.getElementById('detailId').textContent = data.id;
+            document.getElementById('detailPrice').textContent = `$${data.y.toLocaleString()}`;
+            document.getElementById('detailType').textContent = data.type;
+            document.getElementById('detailQuality').textContent = data.x; // Quality is 'x' in scatter plot data
+            const modal = document.getElementById('propertyDetailsModal');
+            modal.style.display = 'flex'; // Ensure display is flex for centering
+            setTimeout(() => modal.classList.add('show'), 10); // Add 'show' class after a tiny delay for transition
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            // Initial render of charts and summary with all data
+            renderCharts(allDummyData);
+            updateSummary(allDummyData);
+
+            // Event listener for Apply Filters button
+            document.getElementById('applyFiltersBtn').addEventListener('click', filterData);
+
+            // Event listener for Generate Summary button (now just updates summary based on current filters)
+            document.getElementById('updateSummaryBtn').addEventListener('click', () => {
+                const minPrice = parseFloat(document.getElementById('minPrice').value);
+                const maxPrice = parseFloat(document.getElementById('maxPrice').value);
+                const houseType = document.getElementById('houseType').value;
+
+                const currentlyFilteredData = allDummyData.filter(d => {
+                    return d.price >= minPrice && d.price <= maxPrice && (houseType === 'All' || d.type === houseType);
+                });
+
+                updateSummary(currentlyFilteredData);
+                document.getElementById('summaryText').textContent = "Summary updated based on current filters!";
+                setTimeout(() => {
+                    document.getElementById('summaryText').textContent = "Generate a summary of the currently filtered data.";
+                }, 3000); // Reset text after 3 seconds
+            });
+
+            // Event listener for modal close button
+            document.querySelector('.close-button').addEventListener('click', () => {
+                const modal = document.getElementById('propertyDetailsModal');
+                modal.classList.remove('show');
+                setTimeout(() => modal.style.display = 'none', 300); // Hide after transition
+            });
+
+            // Close modal if clicked outside content
+            window.addEventListener('click', (event) => {
+                const modal = document.getElementById('propertyDetailsModal');
+                if (event.target === modal) {
+                    modal.classList.remove('show');
+                    setTimeout(() => modal.style.display = 'none', 300); // Hide after transition
+                }
+            });
+
+            // Initial Key Metrics (can be made dynamic later)
+            document.getElementById('metricTotalListings').textContent = allDummyData.length + '+';
+            const prices = allDummyData.map(d => d.price).sort((a,b) => a-b);
+            const medianPrice = prices.length % 2 === 0 ?
+                (prices[prices.length / 2 - 1] + prices[prices.length / 2]) / 2 :
+                prices[Math.floor(prices.length / 2)];
+            document.getElementById('metricMedianPrice').textContent = `$${(medianPrice / 1000).toFixed(0)}K`;
+        });
+    </script>
+</body>
+</html>
